@@ -49,22 +49,23 @@ git push origin master
 
 # --- 5) Switch to dist branch ---
 Write-Host "Switching to dist branch..."
-
-# Fetch remote branches, if any
 git fetch origin
-
-# Check if remote 'dist' branch exists
 $distExists = git branch -r | Select-String "origin/dist"
 
 if ($distExists) {
-  Write-Host "Remote dist branch exists - resetting local copy..."
+  Write-Host "Remote dist branch exists - checking out and cleaning..."
   git checkout dist 2>$null
   git reset --hard origin/dist
 } else {
   Write-Host "Creating new dist branch from empty state..."
   git checkout --orphan dist
-  git rm -rf . 2>$null
 }
+
+# --- Always clean branch before copying ---
+Write-Host "Cleaning dist branch..."
+git rm -rf . > $null 2>&1
+Remove-Item * -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host "Dist branch cleaned."
 
 # --- 6) Copy built output from master ---
 Write-Host "Copying dist and related files from master..."
