@@ -1,0 +1,65 @@
+# 🏗️ Kompilovaný output
+/dist
+/build
+
+# 📦 Závislosti
+/node_modules
+
+# 🧠 Prisma – generovaný klient (bude sa znova generovať pri inštalácii)
+# Ak by si chcel mať client verzovaný, zakomentuj nasledujúci riadok
+/prisma/migrations/
+/generated/
+/.prisma/
+
+# 🧰 Logy
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# 🧪 Testovanie
+/coverage
+/.nyc_output
+
+# 🧩 IDE a editory
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# ⚙️ VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# 🔐 Env súbory (nikdy necommituj skutočné heslá)
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# 📂 Dočasné priečinky
+.temp
+.tmp
+
+# ⚙️ Runtime dáta
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# 🩻 Diagnostické reporty
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# 🧹 OS súbory
+.DS_Store
+Thumbs.db
