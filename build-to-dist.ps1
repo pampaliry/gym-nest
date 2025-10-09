@@ -1,69 +1,73 @@
-param(
-  [string]$SourceBranch = "master",
-  [string]$DistBranch   = "dist"
-)
+# build-to-dist.ps1
 
-$ErrorActionPreference = "Stop"
-
-# 1) Verify .env
+# --- 1) Kontrola prítomnosti .env a kľúčových premenných ---
 $envPath = ".env"
 if (!(Test-Path $envPath)) {
-  Write-Host ".env file is missing."
+  Write-Host ".env file is missing. Make sure it exists in the project root."
   exit 1
 }
 
-$requiredKeys = @("DATABASE_URL", "JWT_SECRET")
 $envContent = Get-Content $envPath | Where-Object { $_ -match "=" }
+$requiredKeys = @("DATABASE_URL", "JWT_SECRET")
 foreach ($key in $requiredKeys) {
   if (-not ($envContent -match "^$key\s*=")) {
     Write-Host "Missing required key in .env: $key"
     exit 1
   }
 }
-Write-Host "Environment variables verified."
 
-# 2) Build project
-Write-Host "Building NestJS project..."
-npm run build
+Write-Host "✅ Environment variables verified."
+
+# --- 2) Prisma kroky ---
+Write-Host "🔧 Running Prisma commands..."
+npx prisma generate
+npx prisma migrate deploy
 
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "Build failed."
+  Write-Host "❌ Prisma commands failed. Exiting."
   exit 1
 }
 
-# 3) Commit build to master
-Write-Host "Committing build to $SourceBranch..."
-git add .
-git add dist -f
-git commit -m "Nest build commit"
-git push origin $SourceBranch
+# --- 3) Build ---
+Write-Host "🚀 Building NestJS project..."
+npm run build
 
-# 4) Create dist branch if not exists
-if (-not (git branch --list $DistBranch)) {
-  Write-Host "Creating new branch $DistBranch..."
-  git branch $DistBranch
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "❌ Build failed. Exiting."
+  exit 1
 }
 
-# 5) Switch to dist
-Write-Host "Switching to $DistBranch..."
-git checkout $DistBranch
+# --- 4) Commit build do main vetvy ---
+Write-Host "📦 Committing dist folder to main..."
+git add .
+git add -f dist
+git add -f prisma/schema.prisma
+git add -f package.json
+git add -f .env.example
+git commit -m "NestJS build commit"
+git push origin master
 
-# 6) Copy only needed files
-Write-Host "Copying build artifacts..."
-git checkout $SourceBranch -- dist
-git checkout $SourceBranch -- prisma/schema.prisma
-git checkout $SourceBranch -- package.json
-git checkout $SourceBranch -- .env.example
+# --- 5) Prepnutie na dist vetvu ---
+Write-Host "🔁 Switching to dist branch..."
+git checkout dist
 
-# 7) Commit and push dist
+# --- 6) Prenos buildnutého výstupu z master ---
+Write-Host "📂 Copying dist and related files from master..."
+git checkout master -- dist
+git checkout master -- prisma/schema.prisma
+git checkout master -- package.json
+git checkout master -- .env.example
+
+# --- 7) Commit a push do dist vetvy ---
 $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+Write-Host "⬆️ Committing and pushing dist..."
 git add -f dist prisma/schema.prisma package.json .env.example
-git commit -m "Deploy from latest $SourceBranch ($timestamp)"
-git push -u origin $DistBranch
+git commit -m "Deploy from latest master ($timestamp)"
+git push origin dist
 
-# 8) Switch back to master
-Write-Host "Switching back to $SourceBranch..."
-git checkout $SourceBranch
+# --- 8) Návrat na hlavnú vetvu ---
+Write-Host "↩️ Switching back to master..."
+git checkout master
 
-Write-Host "✅ Deployment completed successfully!"
+Write-Host "✅ Deployment completed."
 git status
