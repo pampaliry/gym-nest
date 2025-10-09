@@ -49,7 +49,7 @@ git push origin master
 
 # --- 5) Prepnutie na dist vetvu ---
 Write-Host "🔁 Switching to dist branch..."
-git checkout dist
+git checkout -B dist
 
 # --- 6) Prenos buildnutého výstupu z master ---
 Write-Host "📂 Copying dist and related files from master..."
