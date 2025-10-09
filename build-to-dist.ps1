@@ -1,60 +1,65 @@
 # build-to-dist.ps1
-# -----------------
-# 1) Verify environment variables
+param(
+  [string]$SourceBranch = "master",
+  [string]$DistBranch   = "dist",
+  [switch]$UseNpm
+)
+
+$ErrorActionPreference = "Stop"
+
+# 1 Overenie .env
 $envPath = ".env"
 if (!(Test-Path $envPath)) {
-  Write-Host "Missing .env file in project root."
+  Write-Host ".env file is missing."
   exit 1
 }
 
 $requiredKeys = @("DATABASE_URL", "JWT_SECRET")
 $envContent = Get-Content $envPath | Where-Object { $_ -match "=" }
-
 foreach ($key in $requiredKeys) {
   if (-not ($envContent -match "^$key\s*=")) {
     Write-Host "Missing required key in .env: $key"
     exit 1
   }
 }
-
 Write-Host "Environment variables verified."
 
-# 2) Build NestJS
-Write-Host "Building NestJS project..."
-npm run build
+# 2 Prisma generate
+Write-Host "Generating Prisma client..."
+npx prisma generate
 
-if ($LASTEXITCODE -ne 0) {
-  Write-Host "Build failed."
-  exit 1
+# 3 Build projektu
+Write-Host "Building Nest project..."
+if ($UseNpm) {
+  npm run build
+} else {
+  pnpm run build
 }
 
-# 3) Commit build to master
-Write-Host "Committing build to master branch..."
+# 4 Commit build do master
+Write-Host "Committing build to $SourceBranch..."
 git add .
 git add dist -f
 git commit -m "Nest build commit"
-git push origin master
+git push origin $SourceBranch
 
-# 4) Switch to dist branch
-Write-Host "Switching to dist branch..."
-git checkout dist
+# 4️⃣ Prepnutie na dist branch
+Write-Host "Switching to $DistBranch..."
+git checkout $DistBranch
 
-# 5) Copy dist and other required files from master
-Write-Host "Copying build artifacts..."
-git checkout master -- dist
-git checkout master -- prisma/schema.prisma
-git checkout master -- package.json
-git checkout master -- .env.example
+# 5️⃣ Skopírovanie build výstupu zo source branch
+Write-Host "Copying dist from $SourceBranch..."
+git checkout $SourceBranch -- dist
 
-# 6) Commit and push to dist
+# 6️⃣ Commit a push do dist
 $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-git add -f dist prisma/schema.prisma package.json .env.example
-git commit -m "Deploy from latest master ($timestamp)"
-git push origin dist
+git add -f dist
+git commit -m "Deploy from latest $SourceBranch ($timestamp)"
+git push origin $DistBranch
 
-# 7) Switch back to master
-Write-Host "Switching back to master..."
-git checkout master
+# 7️⃣ Návrat na master
+Write-Host "Switching back to $SourceBranch..."
+git checkout $SourceBranch
 
-Write-Host "Deployment completed."
+Write-Host "✅ Deployment completed."
 git status

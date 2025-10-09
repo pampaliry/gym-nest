@@ -1,36 +1,37 @@
 import {
   Injectable,
-  OnModuleDestroy,
   OnModuleInit,
+  OnModuleDestroy,
   INestApplication,
 } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
+/**
+ * PrismaService – zodpovedá za pripojenie a bezpečné
+ * uzatváranie spojenia s PostgreSQL pomocou Prisma ORM.
+ */
 @Injectable()
 export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
-  async onModuleInit() {
-    try {
-      await this.$connect();
-      console.log('✅ Prisma successfully connected to PostgreSQL');
-    } catch (error) {
-      console.error('❌ Prisma failed to connect:', error);
-      process.exit(1);
-    }
+  /** Inicializuje pripojenie k databáze */
+  async onModuleInit(): Promise<void> {
+    await super.$connect();
+    console.log('✅ Prisma successfully connected to PostgreSQL');
   }
 
-  async onModuleDestroy() {
-    await this.$disconnect();
+  /** Odpojí klienta pri vypnutí aplikácie */
+  async onModuleDestroy(): Promise<void> {
+    await super.$disconnect();
     console.log('🛑 Prisma disconnected from PostgreSQL');
   }
 
   /**
-   * Graceful shutdown pre Prisma ≥ v5
-   * (beforeExit event sa počúva priamo cez Node process)
+   * Elegantné ukončenie aplikácie (graceful shutdown)
+   * pre Prisma ≥ v5 — používa sa Node.js event „beforeExit“.
    */
-  enableShutdownHooks(app: INestApplication) {
+  enableShutdownHooks(app: INestApplication): void {
     process.on('beforeExit', () => {
       console.log('⚙️ Shutting down gracefully...');
       void app
