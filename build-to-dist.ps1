@@ -81,15 +81,18 @@ if (Test-Path $worktreePath) {
 }
 git worktree add $worktreePath dist
 
-# --- 7) Copy built files into dist worktree ---
-Write-Host "Copying build output to dist worktree..."
+# --- 7) Copy only production files into dist worktree ---
+Write-Host "Copying production files to dist worktree..."
 if (!(Test-Path "$worktreePath/dist")) { New-Item -ItemType Directory -Path "$worktreePath/dist" | Out-Null }
 if (!(Test-Path "$worktreePath/prisma")) { New-Item -ItemType Directory -Path "$worktreePath/prisma" | Out-Null }
 
+# copy only what is needed for deployment
 Copy-Item -Recurse -Force dist/* "$worktreePath/dist/"
 Copy-Item -Force prisma/schema.prisma "$worktreePath/prisma/"
 Copy-Item -Force package.json "$worktreePath/"
+if (Test-Path package-lock.json) { Copy-Item -Force package-lock.json "$worktreePath/" }
 Copy-Item -Force .env.example "$worktreePath/"
+
 
 # --- 8) Commit and push to dist branch ---
 Set-Location $worktreePath
