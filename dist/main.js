@@ -7,34 +7,46 @@ const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
 require("dotenv/config");
 const app_module_1 = require("./app.module");
-const swagger_1 = require("@nestjs/swagger");
 const all_exceptions_filter_1 = require("./all-exceptions.filter");
 const express_basic_auth_1 = __importDefault(require("express-basic-auth"));
+const swagger_1 = require("@nestjs/swagger");
 const prisma_service_1 = require("./prisma/prisma.service");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     const prismaService = app.get(prisma_service_1.PrismaService);
     prismaService.enableShutdownHooks(app);
-    app.use('/', (0, express_basic_auth_1.default)({
-        users: { admin: 'tvojeHeslo123' },
-        challenge: true,
-    }));
+    if (process.env.ENABLE_SWAGGER === 'true') {
+        app.use(['/api', '/docs', '/'], (0, express_basic_auth_1.default)({
+            challenge: true,
+            users: {
+                [process.env.SWAGGER_USER || 'admin']: process.env.SWAGGER_PASS || 'changeme123',
+            },
+        }));
+    }
     app.useGlobalFilters(new all_exceptions_filter_1.AllExceptionsFilter());
     app.useGlobalPipes(new common_1.ValidationPipe({ whitelist: true }));
     app.setGlobalPrefix('api');
     app.enableCors();
-    const config = new swagger_1.DocumentBuilder()
-        .setTitle('Gym API')
-        .setDescription('REST API pre tréningový systém')
-        .setVersion('1.0')
-        .addTag('training')
-        .build();
-    const document = swagger_1.SwaggerModule.createDocument(app, config);
-    swagger_1.SwaggerModule.setup('/', app, document);
+    if (process.env.ENABLE_SWAGGER === 'true') {
+        const config = new swagger_1.DocumentBuilder()
+            .setTitle('Gym API')
+            .setDescription('REST API pre tréningový systém')
+            .setVersion('1.0')
+            .addTag('training')
+            .addBearerAuth()
+            .build();
+        const document = swagger_1.SwaggerModule.createDocument(app, config);
+        swagger_1.SwaggerModule.setup('/', app, document);
+    }
     const port = Number(process.env.PORT) || 3000;
     await app.listen(port);
-    console.log(`🚀 Gym API beží na: http://localhost:${port}`);
-    console.log(`📘 Swagger UI dostupný na: http://localhost:${port}/`);
+    console.log(`🚀 Gym API bezi na: http://localhost:${port}`);
+    if (process.env.ENABLE_SWAGGER === 'true') {
+        console.log(`📘 Swagger UI: http://localhost:${port}/`);
+    }
+    else {
+        console.log('⚠️ Swagger je vypnuty (ENABLE_SWAGGER != true)');
+    }
 }
 bootstrap().catch((err) => {
     console.error('❌ Bootstrap failed:', err);
