@@ -1,9 +1,13 @@
+# ----------------------------------------
 # build-to-dist.ps1
+# Automates NestJS build and deployment
+# to "dist" branch (production build branch)
+# ----------------------------------------
 
-# --- 1) Check for .env and required variables ---
+# --- 1) Check .env file and required keys ---
 $envPath = ".env"
 if (!(Test-Path $envPath)) {
-  Write-Host ".env file is missing. Make sure it exists in the project root."
+  Write-Host "[ERROR] .env file missing in project root."
   exit 1
 }
 
@@ -11,79 +15,83 @@ $envContent = Get-Content $envPath | Where-Object { $_ -match "=" }
 $requiredKeys = @("DATABASE_URL", "JWT_SECRET")
 foreach ($key in $requiredKeys) {
   if (-not ($envContent -match "^$key\s*=")) {
-    Write-Host "Missing required key in .env: $key"
+    Write-Host "[ERROR] Missing required key in .env: $key"
     exit 1
   }
 }
+Write-Host "✅ Environment variables verified."
 
-Write-Host "Environment variables verified."
-
-# --- 2) Prisma steps ---
-Write-Host "Running Prisma commands..."
+# --- 2) Run Prisma steps (generate + migrate) ---
+Write-Host "▶️ Running Prisma commands..."
 npx prisma generate
 npx prisma migrate deploy
 
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "Prisma commands failed. Exiting."
+  Write-Host "[ERROR] Prisma commands failed. Exiting."
   exit 1
 }
 
-# --- 3) Build ---
-Write-Host "Building NestJS project..."
+# --- 3) Build NestJS project ---
+Write-Host "▶️ Building NestJS project..."
 npm run build
 
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "Build failed. Exiting."
+  Write-Host "[ERROR] Build failed. Exiting."
   exit 1
 }
+Write-Host "✅ Build completed successfully."
 
-# --- 4) Commit build to main branch ---
-Write-Host "Committing dist folder to main..."
+# --- 4) Commit build to main/master branch ---
+Write-Host "💾 Committing dist folder to master..."
 git add .
 git add -f dist
 git add -f prisma/schema.prisma
 git add -f package.json
 git add -f .env.example
-git commit -m "NestJS build commit"
+$timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+git commit -m "NestJS build commit ($timestamp)"
 git push origin master
+Write-Host "✅ Changes pushed to master."
 
-# --- 5) Switch to dist branch ---
-Write-Host "Switching to dist branch..."
+# --- 5) Ensure 'dist' branch exists safely ---
+Write-Host "🔍 Checking if dist branch exists..."
 git fetch origin
 $distExists = git branch -r | Select-String "origin/dist"
 
-if ($distExists) {
-  Write-Host "Remote dist branch exists - checking out and cleaning..."
-  git checkout dist 2>$null
-  git reset --hard origin/dist
+if (-not $distExists) {
+  Write-Host "🆕 Creating remote 'dist' branch..."
+  git branch dist
+  git push -u origin dist
 } else {
-  Write-Host "Creating new dist branch from empty state..."
-  git checkout --orphan dist
+  Write-Host "✅ 'dist' branch already exists."
 }
 
-# --- Always clean branch before copying ---
-Write-Host "Cleaning dist branch..."
-git rm -rf . > $null 2>&1
-Remove-Item * -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "Dist branch cleaned."
+# --- 6) Prepare worktree (temporary checkout of dist branch) ---
+Write-Host "🧩 Preparing temporary worktree for dist..."
+$worktreePath = "../dist-temp"
+if (Test-Path $worktreePath) {
+  Write-Host "🧹 Removing old temp worktree..."
+  git worktree remove $worktreePath -f
+}
+git worktree add $worktreePath dist
 
-# --- 6) Copy built output from master ---
-Write-Host "Copying dist and related files from master..."
-git checkout master -- dist
-git checkout master -- prisma/schema.prisma
-git checkout master -- package.json
-git checkout master -- .env.example
+# --- 7) Copy built files into dist worktree ---
+Write-Host "📦 Copying build output to dist worktree..."
+Copy-Item -Recurse -Force dist/* "$worktreePath/dist/"
+Copy-Item -Force prisma/schema.prisma "$worktreePath/prisma/"
+Copy-Item -Force package.json "$worktreePath/"
+Copy-Item -Force .env.example "$worktreePath/"
 
-# --- 7) Commit and push to dist ---
+# --- 8) Commit and push to dist branch ---
+Set-Location $worktreePath
 $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-Write-Host "Committing and pushing dist..."
-git add -f dist prisma/schema.prisma package.json .env.example
+Write-Host "🚀 Committing and pushing dist build..."
+git add -A
 git commit -m "Deploy from latest master ($timestamp)"
 git push origin dist
 
-# --- 8) Return to main branch ---
-Write-Host "Switching back to master..."
-git checkout master
-
-Write-Host "Deployment completed."
+# --- 9) Cleanup and return to master ---
+Set-Location "../gym-nest"
+git worktree remove $worktreePath -f
+Write-Host "🏁 Deployment completed successfully."
 git status
