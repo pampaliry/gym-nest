@@ -1,0 +1,45 @@
+
+
+
+////////////////////
+🧩 Auth   /////////
+///////////////////
+1️⃣ DTO
+
+RegisterDto → validácia mena, emailu, hesla
+
+LoginDto → validácia prihlasovacích údajov
+
+TokenResponseDto → jednotný tvar odpovede (token + používateľ)
+
+2️⃣ AuthService
+
+register(dto) → vytvorí používateľa, hashne heslo (bcrypt)
+
+login(dto) → overí heslo, vygeneruje JWT
+
+logout() → voliteľné, zatiaľ len lokálne (frontend)
+
+validateUser() → interná metóda pre stratégie
+
+getProfile() → z JWT vytiahne profil používateľa
+
+3️⃣ JWT stratégia
+
+zabezpečuje validáciu tokenu (Authorization: Bearer ...)
+
+integrácia s PassportModule a @nestjs/jwt
+
+4️⃣ Guard
+
+JwtAuthGuard → ochrana endpointov pred neprihlásenými používateľmi
+
+5️⃣ Swagger
+
+Každý endpoint má:
+
+@ApiResponse (200/400/401/409)
+
+@ApiBearerAuth() pre chránené
+
+Tag Auth
